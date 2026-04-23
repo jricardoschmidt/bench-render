@@ -1,0 +1,5 @@
+{
+  "functions": {
+    "api/replicate.js": { "maxDuration": 60 }
+  }
+}

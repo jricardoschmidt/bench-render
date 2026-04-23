@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de render — banco</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --stone:#f5f2ee;--granite:#2c2825;--wood:#8b6340;
+  --wood-light:#c49a6c;--accent:#d4622a;--muted:#9a9087;--border:#e0dbd4;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--stone);color:var(--granite);min-height:100vh;padding:0}
+.app{max-width:900px;margin:0 auto;padding:2rem 1.5rem 4rem}
+header{display:flex;align-items:baseline;gap:1rem;margin-bottom:2.5rem;border-bottom:1px solid var(--border);padding-bottom:1.5rem}
+h1{font-family:'DM Serif Display',serif;font-size:2rem;font-weight:400;letter-spacing:-0.02em}
+.badge{font-family:'DM Mono',monospace;font-size:11px;background:var(--wood);color:#fff;padding:3px 8px;border-radius:3px;letter-spacing:.05em}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.step{background:#fff;border:1px solid var(--border);border-radius:8px;padding:1.5rem;transition:border-color .2s}
+.step.active{border-color:var(--wood-light);box-shadow:0 0 0 3px rgba(196,154,108,.12)}
+.step.done{border-color:#b5cba5}
+.step-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.1em;margin-bottom:.5rem}
+.step h2{font-family:'DM Serif Display',serif;font-size:1.1rem;font-weight:400;margin-bottom:1rem}
+.upload-zone{border:2px dashed var(--border);border-radius:6px;padding:1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--stone)}
+.upload-zone:hover{border-color:var(--wood-light);background:#fdf9f5}
+.upload-zone input{display:none}
+.upload-icon{width:32px;height:32px;margin:0 auto .75rem;opacity:.4}
+.upload-label{font-size:13px;color:var(--muted);line-height:1.5}
+.thumb-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
+.thumb{width:64px;height:64px;border-radius:4px;object-fit:cover;border:1px solid var(--border)}
+.thumb-doc{width:64px;height:64px;border-radius:4px;border:1px solid var(--border);background:#f0ece6;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:9px;color:var(--wood);gap:2px}
+.dims-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+.field{display:flex;flex-direction:column;gap:.4rem}
+.field label{font-size:11px;letter-spacing:.06em;color:var(--muted);font-family:'DM Mono',monospace}
+.field input{border:1px solid var(--border);border-radius:5px;padding:.6rem .8rem;font-size:14px;font-family:'DM Sans',sans-serif;background:#fff;color:var(--granite);outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--wood-light)}
+.btn{padding:.65rem 1.2rem;border:none;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#c05520}
+.btn-primary:disabled{background:#d4a990;cursor:not-allowed}
+.btn-secondary{background:var(--border);color:var(--granite)}
+.btn-secondary:hover{background:#d5cfc8}
+.analysis-box{background:#fdf9f5;border:1px solid var(--border);border-radius:6px;padding:1rem;font-size:13px;color:var(--granite);line-height:1.7;min-height:60px;white-space:pre-wrap;display:none;margin-top:.75rem}
+.result-area{background:#fff;border:1px solid var(--border);border-radius:8px;padding:1.5rem;display:none;margin-top:1rem}
+.result-area h2{font-family:'DM Serif Display',serif;font-size:1.1rem;font-weight:400;margin-bottom:1rem}
+.render-img{width:100%;border-radius:6px;border:1px solid var(--border);display:block}
+.prompt-reveal{margin-top:1rem;background:var(--stone);border-radius:5px;padding:.75rem 1rem;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7}
+.status-bar{height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:.75rem;display:none}
+.status-fill{height:100%;background:var(--wood-light);width:0%;transition:width .4s ease;border-radius:99px}
+.status-text{font-size:12px;color:var(--muted);margin-top:.4rem;display:none;font-family:'DM Mono',monospace}
+.error-msg{color:#c0392b;font-size:12px;margin-top:.5rem;display:none}
+.action-bar{background:#fff;border:1px solid var(--border);border-radius:8px;padding:1.5rem}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Gerador de render — banco</h1>
+    <span class="badge">INTERNO</span>
+  </header>
+
+  <div class="steps">
+    <div class="step active" id="step1">
+      <div class="step-num">PASSO 01</div>
+      <h2>Desenhos técnicos</h2>
+      <div class="upload-zone" onclick="document.getElementById('input-tech').click()">
+        <input type="file" id="input-tech" accept="image/*,.pdf" multiple onchange="handleFiles(this,'tech')">
+        <svg class="upload-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="4" y="4" width="24" height="24" rx="3"/>
+          <path d="M4 20l8-8 5 5 5-5 6 6"/><path d="M20 4v8h8"/>
+        </svg>
+        <div class="upload-label">Clique para anexar os desenhos técnicos<br><span style="font-size:11px">PNG, JPG ou PDF</span></div>
+      </div>
+      <div class="thumb-row" id="thumbs-tech"></div>
+    </div>
+
+    <div class="step" id="step2">
+      <div class="step-num">PASSO 02</div>
+      <h2>Foto de referência</h2>
+      <div class="upload-zone" onclick="document.getElementById('input-ref').click()">
+        <input type="file" id="input-ref" accept="image/*" onchange="handleFiles(this,'ref')">
+        <svg class="upload-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="4" y="4" width="24" height="24" rx="3"/>
+          <circle cx="16" cy="16" r="6"/><circle cx="24" cy="8" r="2" fill="currentColor"/>
+        </svg>
+        <div class="upload-label">Foto do banco produzido<br><span style="font-size:11px">PNG ou JPG</span></div>
+      </div>
+      <div class="thumb-row" id="thumbs-ref"></div>
+    </div>
+
+    <div class="step" id="step3">
+      <div class="step-num">PASSO 03</div>
+      <h2>Dimensões do banco</h2>
+      <div class="dims-grid">
+        <div class="field"><label>COMPRIMENTO (cm)</label><input type="number" id="dim-l" placeholder="ex: 180" min="1"></div>
+        <div class="field"><label>ALTURA (cm)</label><input type="number" id="dim-h" placeholder="ex: 45" min="1"></div>
+        <div class="field"><label>PROFUNDIDADE (cm)</label><input type="number" id="dim-d" placeholder="ex: 40" min="1"></div>
+      </div>
+    </div>
+
+    <div class="step" id="step4">
+      <div class="step-num">PASSO 04</div>
+      <h2>Observações extras</h2>
+      <div class="field">
+        <label>CONTEXTO / AMBIENTE (opcional)</label>
+        <input type="text" id="obs-extra" placeholder="ex: praça pública, calçada, jardim...">
+      </div>
+      <div class="field" style="margin-top:.75rem">
+        <label>ÂNGULO DE CÂMERA</label>
+        <input type="text" id="camera" placeholder="ex: frontal, 3/4, perspectiva aérea">
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="analyzeImages()" id="btn-analyze">1. Analisar imagens com IA</button>
+      <button class="btn btn-primary" onclick="generateRender()" id="btn-gen" disabled>2. Gerar render →</button>
+    </div>
+    <div class="status-bar" id="status-bar"><div class="status-fill" id="status-fill"></div></div>
+    <div class="status-text" id="status-text"></div>
+    <div class="error-msg" id="error-msg"></div>
+    <div class="analysis-box" id="analysis-box"></div>
+  </div>
+
+  <div class="result-area" id="result-area">
+    <h2>Render gerado</h2>
+    <img class="render-img" id="render-img" src="" alt="Render do banco">
+    <div class="prompt-reveal" id="prompt-reveal"></div>
+    <div style="margin-top:1rem;display:flex;gap:.75rem">
+      <a id="download-btn" class="btn btn-primary" download="banco-render.png">Baixar imagem</a>
+      <button class="btn btn-secondary" onclick="generateRender()">Gerar variação</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const files = { tech: [], ref: [] };
+let generatedPrompt = '';
+
+function handleFiles(input, key) {
+  const newFiles = Array.from(input.files);
+  files[key] = key === 'ref' ? [newFiles[0]] : [...files[key], ...newFiles];
+  renderThumbs(key);
+  document.getElementById('step' + (key === 'tech' ? 1 : 2)).className = 'step done';
+}
+
+function renderThumbs(key) {
+  const c = document.getElementById('thumbs-' + key);
+  c.innerHTML = '';
+  files[key].forEach(f => {
+    if (f.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.className = 'thumb'; img.src = URL.createObjectURL(f); c.appendChild(img);
+    } else {
+      const div = document.createElement('div'); div.className = 'thumb-doc';
+      div.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="2" width="12" height="16" rx="2"/><path d="M7 7h6M7 10h6M7 13h4"/></svg>' + f.name.split('.').pop().toUpperCase();
+      c.appendChild(div);
+    }
+  });
+}
+
+async function fileToBase64(file) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
+}
+
+function setStatus(text, pct) {
+  document.getElementById('status-bar').style.display = 'block';
+  document.getElementById('status-text').style.display = 'block';
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('status-fill').style.width = pct + '%';
+}
+
+function showError(msg) { const e = document.getElementById('error-msg'); e.textContent = msg; e.style.display = 'block'; }
+function clearError() { document.getElementById('error-msg').style.display = 'none'; }
+
+async function analyzeImages() {
+  clearError();
+  const allFiles = [...files.tech, ...files.ref].filter(f => f.type.startsWith('image/'));
+  if (allFiles.length === 0) { showError('Anexe ao menos uma imagem (desenho técnico ou foto).'); return; }
+  const btn = document.getElementById('btn-analyze');
+  btn.disabled = true; btn.textContent = 'Analisando...';
+  setStatus('Enviando imagens para análise...', 20);
+  const content = [];
+  for (const f of allFiles) {
+    const b64 = await fileToBase64(f);
+    content.push({ type: 'image', source: { type: 'base64', media_type: f.type, data: b64 } });
+  }
+  const L = document.getElementById('dim-l').value;
+  const H = document.getElementById('dim-h').value;
+  const D = document.getElementById('dim-d').value;
+  const dimsNote = (L && H && D) ? `\n\nDimensões: comprimento ${L}cm × altura ${H}cm × profundidade ${D}cm.` : '';
+  const obs = document.getElementById('obs-extra').value;
+  const cam = document.getElementById('camera').value || '3/4';
+  content.push({ type: 'text', text: `Você é especialista em render de mobiliário urbano. Analise estas imagens de um banco com assento em dormente de madeira e base em granito recortado. Extraia materiais, acabamentos, proporções e detalhes construtivos. Ao final escreva exatamente "PROMPT_RENDER:" seguido de um parágrafo em inglês otimizado para Stable Diffusion / Flux com ângulo ${cam}, iluminação natural suave, fundo neutro claro, render fotorrealista de produto. Inclua materiais, texturas e dimensões físicas.${dimsNote}${obs ? '\nContexto: ' + obs : ''}` });
+  try {
+    setStatus('IA analisando...', 50);
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content }] })
+    });
+    const data = await resp.json();
+    const text = data.content?.map(b => b.text || '').join('') || '';
+    const match = text.match(/PROMPT_RENDER:\s*([\s\S]+?)(?:\n\n|$)/i);
+    generatedPrompt = match ? match[1].trim() : text.slice(-400);
+    document.getElementById('analysis-box').style.display = 'block';
+    document.getElementById('analysis-box').textContent = text;
+    document.getElementById('btn-gen').disabled = false;
+    setStatus('Análise concluída — pronto para gerar o render.', 100);
+  } catch(e) { showError('Erro na análise: ' + e.message); }
+  btn.disabled = false; btn.textContent = '1. Analisar imagens com IA';
+}
+
+async function generateRender() {
+  clearError();
+  if (!generatedPrompt) { showError('Execute a análise primeiro.'); return; }
+  const btn = document.getElementById('btn-gen');
+  btn.disabled = true; btn.textContent = 'Gerando...';
+  setStatus('Enviando para Replicate / Flux...', 10);
+  const L = document.getElementById('dim-l').value;
+  const H = document.getElementById('dim-h').value;
+  const D = document.getElementById('dim-d').value;
+  const dimsText = (L && H && D) ? `, ${L}cm long × ${H}cm tall × ${D}cm deep` : '';
+  const finalPrompt = generatedPrompt + dimsText + ', photorealistic product render, soft natural light, neutral white background, high detail, 8k';
+  document.getElementById('prompt-reveal').textContent = '→ ' + finalPrompt;
+  try {
+    const startResp = await fetch('/api/replicate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'start', body: { prompt: finalPrompt, negative_prompt: 'cartoon, sketch, blurry, low quality, distorted, text, watermark, people', width: 1024, height: 768, num_inference_steps: 28, guidance: 3.5 } })
+    });
+    if (!startResp.ok) { const e = await startResp.json(); throw new Error(e.error || e.detail || 'Erro ao iniciar.'); }
+    const prediction = await startResp.json();
+    setStatus('Processando render...', 25);
+    let result = prediction;
+    let attempts = 0;
+    while (result.status !== 'succeeded' && result.status !== 'failed' && attempts < 80) {
+      await new Promise(r => setTimeout(r, 3000));
+      attempts++;
+      const pollResp = await fetch('/api/replicate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'poll', predictionId: result.id }) });
+      result = await pollResp.json();
+      setStatus(`Gerando render... (${attempts * 3}s)`, 25 + Math.min(attempts * 1.5, 70));
+    }
+    if (result.status === 'failed') throw new Error(result.error || 'Falha na geração.');
+    const imgUrl = Array.isArray(result.output) ? result.output[0] : result.output;
+    if (!imgUrl) throw new Error('Nenhuma imagem retornada.');
+    document.getElementById('render-img').src = imgUrl;
+    document.getElementById('download-btn').href = imgUrl;
+    document.getElementById('result-area').style.display = 'block';
+    setStatus('Render gerado com sucesso!', 100);
+  } catch(e) { showError('Erro: ' + e.message); }
+  btn.disabled = false; btn.textContent = '2. Gerar render →';
+}
+</script>
+</body>
+</html>
